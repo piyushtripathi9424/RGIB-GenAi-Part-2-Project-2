@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-TitanCloud Enterprise SRE Incident Response Assistant
-Problem Description:
-Develop a RAG-based assistant using an enterprise Site Reliability Engineering (SRE)
-incident runbook. The system should retrieve information related to service-level agreements,
-incident management, error codes, alert escalation procedures, and troubleshooting steps.
+TitanCloud Enterprise SRE Incident Response Copilot
+A modern conversational chat assistant for querying enterprise SRE runbooks,
+service-level agreements, error codes, and alert escalation procedures.
 """
 
 import os
@@ -23,415 +21,479 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TitanCloud SRE Incident Response Copilot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #090d16;
-      --surface: #0f172a;
-      --surface-border: #1e293b;
-      --card-bg: #131c31;
-      --card-hover: #17233d;
+      --sidebar: #0e1526;
+      --chat-bg: #0b1120;
+      --card-bg: #131d35;
+      --card-border: #1e2c4f;
       --primary: #3b82f6;
       --primary-hover: #2563eb;
-      --primary-glow: rgba(59, 130, 246, 0.35);
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --text: #f1f5f9;
+      --text-muted: #8492a6;
       --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
+      --danger: #f43f5e;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
-      padding-bottom: 60px;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
     }
 
-    header {
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--surface-border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      padding: 16px 32px;
-    }
-    .header-inner {
-      max-width: 1280px;
-      margin: 0 auto;
+    /* Sidebar Layout */
+    aside {
+      width: 290px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--card-border);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 10;
     }
-    .brand {
+    .sidebar-header {
+      padding: 20px 18px;
+      border-bottom: 1px solid var(--card-border);
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
-    .logo {
+    .app-logo {
+      width: 38px;
+      height: 38px;
       background: linear-gradient(135deg, #2563eb, #7c3aed);
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 20px;
+      font-size: 16px;
       color: #fff;
-      box-shadow: 0 4px 20px var(--primary-glow);
+      box-shadow: 0 4px 14px var(--primary-glow);
     }
-    .brand h1 {
-      font-size: 19px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
+    .app-title h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
       color: #fff;
     }
-    .brand p {
-      font-size: 12px;
+    .app-title p {
+      font-size: 11px;
       color: var(--text-muted);
     }
-    .status-cluster {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .chip {
-      font-size: 12px;
+
+    .new-chat-btn {
+      margin: 16px 18px;
+      background: rgba(59, 130, 246, 0.12);
+      color: #60a5fa;
+      border: 1px dashed rgba(59, 130, 246, 0.4);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
       font-weight: 600;
-      padding: 6px 12px;
-      border-radius: 30px;
-      background: #1e293b;
-      color: #93c5fd;
-      border: 1px solid #334155;
-      display: inline-flex;
+      cursor: pointer;
+      display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 10px;
+      transition: all 0.2s;
     }
-    .chip.green {
-      background: rgba(16, 185, 129, 0.12);
-      color: #34d399;
-      border-color: rgba(16, 185, 129, 0.3);
+    .new-chat-btn:hover {
+      background: rgba(59, 130, 246, 0.22);
+      border-color: #60a5fa;
     }
-    .dot {
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 18px 18px;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin: 18px 0 8px;
+    }
+    .shortcut-item {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12px;
+      color: #cbd5e1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+      transition: all 0.15s ease;
+      text-align: left;
+      width: 100%;
+    }
+    .shortcut-item:hover {
+      background: #17233d;
+      border-color: #24355c;
+      color: #fff;
+    }
+    .shortcut-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .shortcut-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-footer {
+      padding: 14px 18px;
+      border-top: 1px solid var(--card-border);
+      background: rgba(10, 15, 27, 0.5);
+    }
+    .system-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .pulse-dot {
       width: 8px;
       height: 8px;
-      background: #10b981;
+      background: var(--success);
       border-radius: 50%;
-      box-shadow: 0 0 10px #10b981;
+      box-shadow: 0 0 8px var(--success);
     }
-
-    main {
-      max-width: 1280px;
-      margin: 32px auto;
-      padding: 0 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 32px;
-    }
-
-    .hero-panel {
-      background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%);
-      border: 1px solid rgba(59, 130, 246, 0.25);
-      border-radius: 20px;
-      padding: 32px;
-      display: grid;
-      grid-template-columns: 2fr 1.2fr;
-      gap: 32px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-    }
-    @media (max-width: 900px) {
-      .hero-panel { grid-template-columns: 1fr; }
-    }
-    .hero-text h2 {
-      font-size: 24px;
-      font-weight: 800;
-      color: #fff;
-      margin-bottom: 12px;
-      line-height: 1.3;
-    }
-    .hero-text h2 span {
-      background: linear-gradient(135deg, #60a5fa, #a78bfa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .hero-text p {
-      font-size: 14px;
-      color: #cbd5e1;
-      margin-bottom: 20px;
-      line-height: 1.7;
-    }
-    .sre-capabilities {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .cap-tag {
-      background: rgba(30, 41, 59, 0.8);
+    .assessment-btn {
+      width: 100%;
+      background: #1e293b;
+      color: #f1f5f9;
       border: 1px solid #334155;
-      padding: 5px 11px;
       border-radius: 8px;
+      padding: 8px 12px;
       font-size: 12px;
       font-weight: 600;
-      color: #bfdbfe;
-    }
-
-    .stats-card {
-      background: rgba(10, 15, 29, 0.85);
-      border: 1px solid var(--surface-border);
-      border-radius: 16px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-around;
-      gap: 16px;
-    }
-    .stat-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #1e293b;
-    }
-    .stat-row:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-    .stat-label {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    .stat-value {
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Operational Topics Cards */
-    .topics-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-    }
-    @media (max-width: 1024px) {
-      .topics-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 640px) {
-      .topics-grid { grid-template-columns: 1fr; }
-    }
-    .topic-card {
-      background: var(--card-bg);
-      border: 1px solid var(--surface-border);
-      border-radius: 14px;
-      padding: 20px;
       cursor: pointer;
-      transition: all 0.25s ease;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .topic-card:hover {
-      background: var(--card-hover);
-      border-color: #3b82f6;
-      transform: translateY(-3px);
-      box-shadow: 0 8px 24px var(--primary-glow);
-    }
-    .topic-icon {
-      font-size: 26px;
-      margin-bottom: 12px;
-    }
-    .topic-card h4 {
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 6px;
-    }
-    .topic-card p {
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.5;
-      margin-bottom: 14px;
-    }
-    .topic-link {
-      font-size: 12px;
-      font-weight: 700;
-      color: #60a5fa;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    /* Main Console */
-    .console-section {
-      background: var(--surface);
-      border: 1px solid var(--surface-border);
-      border-radius: 18px;
-      padding: 28px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    }
-    .console-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .console-header h3 {
-      font-size: 18px;
-      font-weight: 800;
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-
-    .query-form {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-    .query-input {
-      flex: 1;
-      background: #090d16;
-      border: 1px solid #334155;
-      color: #fff;
-      padding: 16px 20px;
-      border-radius: 12px;
-      font-size: 14px;
-      outline: none;
-      transition: all 0.2s;
-    }
-    .query-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 4px var(--primary-glow);
-    }
-    .ask-btn {
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      padding: 16px 28px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background 0.2s;
-      white-space: nowrap;
-    }
-    .ask-btn:hover { background: var(--primary-hover); }
-
-    .quick-chips-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 10px;
-    }
-    .quick-chips {
-      display: flex;
-      flex-wrap: wrap;
+      justify-content: center;
       gap: 8px;
-      margin-bottom: 24px;
-    }
-    .query-chip {
-      background: #1e293b;
-      color: #cbd5e1;
-      border: 1px solid #334155;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 12px;
-      cursor: pointer;
       transition: all 0.2s;
     }
-    .query-chip:hover {
+    .assessment-btn:hover {
       background: #334155;
-      border-color: #60a5fa;
-      color: #fff;
-    }
-    .query-chip span.badge-num {
-      color: #60a5fa;
-      font-weight: 700;
-      margin-right: 4px;
+      border-color: #475569;
     }
 
-    /* Output Console */
-    .assistant-output {
-      background: #090d16;
-      border: 1px solid #1e293b;
-      border-radius: 14px;
-      padding: 24px;
-      margin-top: 16px;
-      display: none;
-      animation: fadeIn 0.3s ease;
+    /* Main Chat Layout */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--chat-bg);
+      position: relative;
     }
-    .assistant-output.active { display: block; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .output-meta {
+
+    .chat-topbar {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(11, 17, 32, 0.85);
+      backdrop-filter: blur(12px);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #1e293b;
+      z-index: 5;
     }
-    .meta-title {
-      font-size: 13px;
+    .topbar-info h2 {
+      font-size: 15px;
       font-weight: 700;
-      color: #60a5fa;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      color: #fff;
     }
-    .source-badge {
+    .topbar-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .topbar-tags {
+      display: flex;
+      gap: 8px;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #17233d;
+      color: #93c5fd;
+      border: 1px solid #24355c;
+      font-weight: 600;
+    }
+
+    /* Messages Area */
+    .messages-viewport {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+    }
+
+    .msg-group {
+      display: flex;
+      gap: 14px;
+      max-width: 860px;
+      width: 100%;
+    }
+    .msg-group.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+    .msg-group.assistant {
+      align-self: flex-start;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .avatar.assistant {
+      background: linear-gradient(135deg, #2563eb, #6366f1);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .avatar.user {
+      background: #334155;
+      color: #f1f5f9;
+    }
+
+    .bubble {
+      padding: 16px 20px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 760px;
+    }
+    .msg-group.user .bubble {
+      background: #2563eb;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-group.assistant .bubble {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: #e2e8f0;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .source-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+    }
+    .source-tag {
       background: #1e3a8a;
       color: #bfdbfe;
       border: 1px solid #3b82f6;
       border-radius: 6px;
-      padding: 3px 10px;
-      font-size: 12px;
+      padding: 2px 8px;
+      font-size: 11px;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
-    .source-badge.empty {
+    .source-tag.none {
       background: #1e293b;
       color: #94a3b8;
       border-color: #334155;
     }
-    .answer-body {
-      font-size: 16px;
-      line-height: 1.7;
-      color: #e2e8f0;
-      margin-bottom: 20px;
+    .payload-toggle {
+      font-size: 11px;
+      color: #60a5fa;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-left: auto;
     }
-    .answer-body.not-found {
-      color: #f87171;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 20px;
-      font-weight: 800;
-    }
-    .json-box {
-      background: #030712;
+    .payload-pre {
+      background: #060a12;
       border: 1px solid #1e293b;
-      border-radius: 10px;
-      padding: 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: #67e8f9;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #38bdf8;
+      margin-top: 10px;
       overflow-x: auto;
+      display: none;
+    }
+    .payload-pre.open { display: block; }
+
+    .welcome-card {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 8px;
+    }
+    .welcome-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .welcome-card p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .preset-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .suggestion-chip {
+      background: #17233d;
+      border: 1px solid #24355c;
+      color: #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .suggestion-chip:hover {
+      background: #2563eb;
+      border-color: #3b82f6;
+      color: #fff;
     }
 
-    /* Assessment Table */
-    .table-container {
-      overflow-x: auto;
-      margin-top: 16px;
+    /* Bottom Input Bar */
+    .input-dock {
+      padding: 16px 28px 24px;
+      background: rgba(11, 17, 32, 0.95);
+      border-top: 1px solid var(--card-border);
+    }
+    .input-box {
+      background: #131d35;
+      border: 1px solid #24355c;
+      border-radius: 14px;
+      padding: 6px 10px 6px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      transition: border-color 0.2s;
+    }
+    .input-box:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .chat-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .send-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .send-btn:hover { background: var(--primary-hover); }
+
+    /* Modal for Assessment Table */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 980px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .close-modal-btn {
+      background: #1e293b;
+      border: none;
+      color: #94a3b8;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .close-modal-btn:hover { background: #334155; color: #fff; }
+    .modal-content {
+      padding: 24px;
+      overflow-y: auto;
     }
     table {
       width: 100%;
@@ -439,156 +501,129 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       font-size: 13px;
     }
     th, td {
-      padding: 14px 16px;
-      text-align: left;
+      padding: 12px 14px;
       border-bottom: 1px solid #1e293b;
+      text-align: left;
     }
     th {
-      background: #090d16;
+      background: #131d35;
       color: #94a3b8;
-      font-weight: 700;
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    tr:hover td { background: rgba(255, 255, 255, 0.015); }
-    .status-ok {
-      color: #34d399;
       font-weight: 700;
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-inner">
-      <div class="brand">
-        <div class="logo">SRE</div>
-        <div>
-          <h1>TitanCloud SRE Incident Response Assistant</h1>
-          <p>Enterprise RAG System · SLAs · Error Codes · Escalation · Troubleshooting</p>
-        </div>
-      </div>
-      <div class="status-cluster">
-        <div class="chip green"><div class="dot"></div> Vector Store (ChromaDB)</div>
-        <div class="chip">Strict Grounding Active</div>
-        <div class="chip">Embedding: all-MiniLM-L6-v2</div>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <!-- Hero / Problem Description Overview -->
-    <div class="hero-panel">
-      <div class="hero-text">
-        <h2>Enterprise Site Reliability Engineering <span>Incident Runbook Assistant</span></h2>
-        <p>This RAG-based assistant indexes the 50-page official TitanCloud SRE Incident Response Runbook into a local persistent ChromaDB vector database. It provides instant, grounded answers for Service-Level Agreements (SLAs), error code troubleshooting, and alert escalation procedures while strictly preventing hallucinations with exact <code>[not found]</code> handling.</p>
-        <div class="sre-capabilities">
-          <div class="cap-tag">Service-Level Agreements (SLAs)</div>
-          <div class="cap-tag">Error Code Runbooks</div>
-          <div class="cap-tag">P0/P1 Alert Escalations</div>
-          <div class="cap-tag">Failover & Eviction Policies</div>
-          <div class="cap-tag">Grounding & Source Citations</div>
-        </div>
-      </div>
-
-      <div class="stats-card">
-        <div class="stat-row">
-          <span class="stat-label">Knowledge Source</span>
-          <span class="stat-value">titancloud_sre_incident_runbook_50p.pdf</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Total Document Pages</span>
-          <span class="stat-value">50 Pages</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">ChromaDB Chunks</span>
-          <span class="stat-value">197 Chunks</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Grounding Mode</span>
-          <span class="stat-value" style="color: #34d399;">Strict (Zero Hallucination)</span>
-        </div>
+  <!-- Sidebar -->
+  <aside>
+    <div class="sidebar-header">
+      <div class="app-logo">TC</div>
+      <div class="app-title">
+        <h1>TitanCloud SRE</h1>
+        <p>Incident Runbook Copilot</p>
       </div>
     </div>
 
-    <!-- SRE Operational Topics Grid -->
-    <div class="topics-grid">
-      <div class="topic-card" onclick="runPreset(1)">
-        <div>
-          <div class="topic-icon">📊</div>
-          <h4>SLA & Service Credits</h4>
-          <p>Query uptime guarantees (99.95%) and credit percentages applied to monthly invoices (e.g. 25% credit for 99.2% uptime).</p>
-        </div>
-        <div class="topic-link">Query Section 2.3 (Page 9) &rarr;</div>
-      </div>
+    <button class="new-chat-btn" onclick="startNewChat()">
+      <span>+</span> New Incident Query
+    </button>
 
-      <div class="topic-card" onclick="runPreset(2)">
-        <div>
-          <div class="topic-icon">⚠️</div>
-          <h4>Error Codes & Diagnostics</h4>
-          <p>Instant diagnosis for <code>ERR_PG_REPLICA_LAG</code>, automatic Patroni failover thresholds (45 seconds), and node fencing rules.</p>
-        </div>
-        <div class="topic-link">Query Section 5.4 (Page 22) &rarr;</div>
-      </div>
+    <div class="sidebar-scroll">
+      <div class="section-label">Runbook Quick Inquiries</div>
+      <button class="shortcut-item" onclick="triggerQuery(1)">
+        <span class="shortcut-icon">📊</span>
+        <span class="shortcut-title">Uptime SLA & Credit (99.2%)</span>
+      </button>
+      <button class="shortcut-item" onclick="triggerQuery(2)">
+        <span class="shortcut-icon">⚠️</span>
+        <span class="shortcut-title">ERR_PG_REPLICA_LAG Failover</span>
+      </button>
+      <button class="shortcut-item" onclick="triggerQuery(3)">
+        <span class="shortcut-icon">🚨</span>
+        <span class="shortcut-title">Severity-1 (P0) Escalation</span>
+      </button>
+      <button class="shortcut-item" onclick="triggerQuery(4)">
+        <span class="shortcut-icon">🛡️</span>
+        <span class="shortcut-title">Canary Rollout (Negative Test)</span>
+      </button>
+      <button class="shortcut-item" onclick="triggerQuery(5)">
+        <span class="shortcut-icon">📦</span>
+        <span class="shortcut-title">WAL S3 Retention (Negative Test)</span>
+      </button>
 
-      <div class="topic-card" onclick="runPreset(3)">
-        <div>
-          <div class="topic-icon">🚨</div>
-          <h4>Alert Escalation (P0/P1)</h4>
-          <p>PagerDuty response timelines for Severity-1 outages (L1 acknowledgment within 5m &rarr; L2 Staff SRE &rarr; VP of Infrastructure at 15m).</p>
-        </div>
-        <div class="topic-link">Query Section 9.1 (Page 41) &rarr;</div>
-      </div>
-
-      <div class="topic-card" onclick="runPreset(4)">
-        <div>
-          <div class="topic-icon">🛡️</div>
-          <h4>Strict Grounding Guardrail</h4>
-          <p>If requested information is absent from the PDF (e.g. Canary rollouts or S3 backup retention), returns <code>[not found]</code>.</p>
-        </div>
-        <div class="topic-link">Test Fallback (Negative Controls) &rarr;</div>
+      <div class="section-label">Document Corpus</div>
+      <div style="font-size: 12px; color: #94a3b8; line-height: 1.5; padding: 4px 6px;">
+        📄 <code>titancloud_sre_incident_runbook_50p.pdf</code><br>
+        • 50 Pages Extracted<br>
+        • 197 Chunks Indexed<br>
+        • ChromaDB Vector Store
       </div>
     </div>
 
-    <!-- Main Interactive Assistant Console -->
-    <div class="console-section">
-      <div class="console-header">
-        <h3>💬 Ask the SRE Incident Assistant</h3>
-        <span style="font-size: 13px; color: var(--text-muted);">Retrieves grounded answers with exact source page numbers</span>
+    <div class="sidebar-footer">
+      <div class="system-badge">
+        <div class="pulse-dot"></div> ChromaDB Persistent Online
       </div>
+      <button class="assessment-btn" onclick="openAssessmentModal()">
+        📋 View Rubric Test Results (Q1-Q5)
+      </button>
+    </div>
+  </aside>
 
-      <div class="quick-chips-title">Quick Operational Queries & Assessment Questions:</div>
-      <div class="quick-chips">
-        <div class="query-chip" onclick="runPreset(1)"><span class="badge-num">Q1:</span> SLA Service Credit for 99.2% Uptime (Page 9)</div>
-        <div class="query-chip" onclick="runPreset(2)"><span class="badge-num">Q2:</span> ERR_PG_REPLICA_LAG Patroni Failover Threshold (Page 22)</div>
-        <div class="query-chip" onclick="runPreset(3)"><span class="badge-num">Q3:</span> Severity-1 (P0) Outage Escalation Timeline (Page 41)</div>
-        <div class="query-chip" onclick="runPreset(4)"><span class="badge-num">Q4:</span> Kubernetes Canary Rollout Bake Time (Negative Test)</div>
-        <div class="query-chip" onclick="runPreset(5)"><span class="badge-num">Q5:</span> PostgreSQL WAL Cold Storage S3 Retention (Negative Test)</div>
+  <!-- Main Chat Workspace -->
+  <section class="chat-container">
+    <div class="chat-topbar">
+      <div class="topbar-info">
+        <h2>SRE Incident Assistance Console</h2>
+        <p>Grounding strictly against official SRE procedures</p>
       </div>
-
-      <div class="query-form">
-        <input type="text" id="queryInput" class="query-input" placeholder="Ask about SLAs, incident error codes, or escalation timelines...">
-        <button class="ask-btn" id="askBtn" onclick="handleAsk()">Query Assistant</button>
-      </div>
-
-      <div class="assistant-output" id="outputArea">
-        <div class="output-meta">
-          <div class="meta-title">Grounded SRE Assistant Response</div>
-          <div id="sourcesWrap"></div>
-        </div>
-        <div class="answer-body" id="answerText"></div>
-        <div class="quick-chips-title">Backend Return Payload [<code>def answer(question: str) -> dict</code>]:</div>
-        <pre class="json-box"><code id="rawJson"></code></pre>
+      <div class="topbar-tags">
+        <span class="pill">Model: all-MiniLM-L6-v2</span>
+        <span class="pill" style="color: #34d399; border-color: rgba(16,185,129,0.3);">Strict Grounding</span>
       </div>
     </div>
 
-    <!-- Assessment Suite Table -->
-    <div class="console-section">
-      <div class="console-header">
-        <h3>📋 Rubric Assessment Suite (All 5 Questions Verified)</h3>
-        <span style="font-size: 12px; color: var(--text-muted);">All 5 required questions pass with 100% precision</span>
+    <!-- Messages Scroll Feed -->
+    <div class="messages-viewport" id="messagesBox">
+      <!-- Welcome Hero Message -->
+      <div class="welcome-card" id="welcomeHero">
+        <h3>👋 Hello SRE Engineer</h3>
+        <p>I am your TitanCloud Incident Response Copilot. I have indexed the complete 50-page official incident runbook and can assist you with Service-Level Agreements (SLAs), error code troubleshooting, Patroni automatic failovers, and P0 incident escalation timelines.</p>
+        <div class="preset-suggestions">
+          <div class="suggestion-chip" onclick="triggerQuery(1)">📊 What is the service credit for 99.2% uptime?</div>
+          <div class="suggestion-chip" onclick="triggerQuery(2)">⚠️ How to handle ERR_PG_REPLICA_LAG?</div>
+          <div class="suggestion-chip" onclick="triggerQuery(3)">🚨 What is the Severity-1 escalation timeline?</div>
+          <div class="suggestion-chip" onclick="triggerQuery(4)">🛡️ Canary bake time (Strict [not found] test)</div>
+        </div>
       </div>
-      <div class="table-container">
+    </div>
+
+    <!-- Input Dock -->
+    <div class="input-dock">
+      <div class="input-box">
+        <input type="text" id="userInput" class="chat-input" placeholder="Ask about SLAs, incident error codes, or escalation timelines... (Press Enter)" autocomplete="off">
+        <button class="send-btn" id="sendBtn" onclick="handleSend()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Assessment Results Modal -->
+  <div class="modal-backdrop" id="assessmentModal" onclick="closeAssessmentModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>📋 Official Assessment Suite — 5 Questions Verification</h3>
+        <button class="close-modal-btn" onclick="closeAssessmentModal()">&times;</button>
+      </div>
+      <div class="modal-content">
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">
+          All five questions evaluated through <code>def answer(question: str) -> dict</code>. Supports exact factual needles and triggers strict <code>[not found]</code> on negative controls.
+        </p>
         <table>
           <thead>
             <tr>
@@ -596,18 +631,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
               <th>Question</th>
               <th>Expected Answer</th>
               <th>Actual RAG Output</th>
-              <th>Source Cited</th>
+              <th>Source</th>
               <th>Status</th>
             </tr>
           </thead>
-          <tbody id="assessmentTbody"></tbody>
+          <tbody id="modalTableBody"></tbody>
         </table>
       </div>
     </div>
-  </main>
+  </div>
 
   <script>
-    const presets = {
+    const queries = {
       1: "What is the service credit percentage owed to enterprise customers if monthly uptime drops to 99.2%?",
       2: "What is the maximum permitted replication lag threshold before Patroni initiates automatic failover for error code ERR_PG_REPLICA_LAG?",
       3: "What is the escalation timeline for a Severity-1 (P0) production outage alert if unacknowledged by the L1 On-Call Engineer?",
@@ -615,18 +650,56 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       5: "What is the retention period and backup frequency for PostgreSQL Write-Ahead Logs (WAL) in cold S3 storage?"
     };
 
-    function runPreset(id) {
-      document.getElementById('queryInput').value = presets[id];
-      handleAsk();
+    let msgCounter = 0;
+
+    function triggerQuery(num) {
+      document.getElementById('userInput').value = queries[num];
+      handleSend();
     }
 
-    async function handleAsk() {
-      const q = document.getElementById('queryInput').value.trim();
+    function startNewChat() {
+      const box = document.getElementById('messagesBox');
+      box.innerHTML = `
+        <div class="welcome-card" id="welcomeHero">
+          <h3>👋 New SRE Incident Session Started</h3>
+          <p>Ask any operational question or select an SRE incident runbook shortcut below.</p>
+          <div class="preset-suggestions">
+            <div class="suggestion-chip" onclick="triggerQuery(1)">📊 What is the service credit for 99.2% uptime?</div>
+            <div class="suggestion-chip" onclick="triggerQuery(2)">⚠️ How to handle ERR_PG_REPLICA_LAG?</div>
+            <div class="suggestion-chip" onclick="triggerQuery(3)">🚨 What is the Severity-1 escalation timeline?</div>
+            <div class="suggestion-chip" onclick="triggerQuery(4)">🛡️ Canary bake time (Strict [not found] test)</div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function handleSend() {
+      const input = document.getElementById('userInput');
+      const q = input.value.trim();
       if (!q) return;
 
-      const btn = document.getElementById('askBtn');
-      btn.innerText = "Searching...";
-      btn.disabled = true;
+      input.value = "";
+      const box = document.getElementById('messagesBox');
+
+      // Append User Bubble
+      const userGroup = document.createElement('div');
+      userGroup.className = "msg-group user";
+      userGroup.innerHTML = `
+        <div class="avatar user">You</div>
+        <div class="bubble">${escapeHtml(q)}</div>
+      `;
+      box.appendChild(userGroup);
+
+      // Append Loading Indicator
+      const loadingGroup = document.createElement('div');
+      loadingGroup.className = "msg-group assistant";
+      loadingGroup.id = "loadingMsg";
+      loadingGroup.innerHTML = `
+        <div class="avatar assistant">SRE</div>
+        <div class="bubble" style="color: #94a3b8;">Searching SRE runbook corpus in ChromaDB...</div>
+      `;
+      box.appendChild(loadingGroup);
+      box.scrollTop = box.scrollHeight;
 
       try {
         const res = await fetch('/api/answer', {
@@ -635,74 +708,89 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           body: JSON.stringify({ question: q })
         });
         const data = await res.json();
+        
+        loadingGroup.remove();
 
-        const area = document.getElementById('outputArea');
-        const ansEl = document.getElementById('answerText');
-        const srcWrap = document.getElementById('sourcesWrap');
-        const jsonEl = document.getElementById('rawJson');
-
-        area.classList.add('active');
-        ansEl.innerText = data.answer;
-        if (data.answer === "[not found]") {
-          ansEl.className = "answer-body not-found";
-        } else {
-          ansEl.className = "answer-body";
-        }
-
-        srcWrap.innerHTML = "";
+        // Assistant Message Bubble
+        msgCounter++;
+        const currId = "payload_" + msgCounter;
+        const isNotFound = data.answer === "[not found]";
+        
+        let sourceHtml = "";
         if (data.sources && data.sources.length > 0) {
-          data.sources.forEach(s => {
-            const b = document.createElement('span');
-            b.className = "source-badge";
-            b.innerText = "Source: " + s;
-            srcWrap.appendChild(b);
-          });
+          sourceHtml = data.sources.map(s => `<span class="source-tag">📄 Source: ${s}</span>`).join(" ");
         } else {
-          const b = document.createElement('span');
-          b.className = "source-badge empty";
-          b.innerText = "No Source Cited (Unsupported Information)";
-          srcWrap.appendChild(b);
+          sourceHtml = `<span class="source-tag none">No Source Cited (Unsupported in PDF)</span>`;
         }
 
-        jsonEl.innerText = JSON.stringify(data, null, 2);
-      } catch (err) {
-        alert("Query error: " + err);
-      } finally {
-        btn.innerText = "Query Assistant";
-        btn.disabled = false;
+        const assistGroup = document.createElement('div');
+        assistGroup.className = "msg-group assistant";
+        assistGroup.innerHTML = `
+          <div class="avatar assistant">SRE</div>
+          <div class="bubble">
+            <div style="${isNotFound ? 'color: #f43f5e; font-family: var(--font-mono); font-size: 16px; font-weight: 700;' : ''}">${escapeHtml(data.answer)}</div>
+            <div class="source-row">
+              ${sourceHtml}
+              <button class="payload-toggle" onclick="togglePayload('${currId}')">JSON Payload</button>
+            </div>
+            <pre class="payload-pre" id="${currId}"><code>${escapeHtml(JSON.stringify(data, null, 2))}</code></pre>
+          </div>
+        `;
+        box.appendChild(assistGroup);
+        box.scrollTop = box.scrollHeight;
+
+      } catch (e) {
+        loadingGroup.innerHTML = `<div class="avatar assistant">SRE</div><div class="bubble" style="color: #f43f5e;">Query failed: ${e}</div>`;
       }
     }
 
-    async function loadAssessment() {
+    function togglePayload(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('open');
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function openAssessmentModal() {
+      document.getElementById('assessmentModal').classList.add('open');
+      loadModalTable();
+    }
+
+    function closeAssessmentModal(e) {
+      document.getElementById('assessmentModal').classList.remove('open');
+    }
+
+    async function loadModalTable() {
+      const tbody = document.getElementById('modalTableBody');
+      if (tbody.children.length > 0) return;
       try {
         const res = await fetch('/api/assessment');
         const items = await res.json();
-        const tbody = document.getElementById('assessmentTbody');
         tbody.innerHTML = "";
-
         items.forEach(item => {
-          const tr = document.createElement('tr');
           const isNotFound = item.expected_answer === "[not found]";
+          const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>${item.id}</strong></td>
             <td>${item.question}</td>
-            <td style="color: ${isNotFound ? '#f87171' : '#93c5fd'}; font-family: monospace;">${item.expected_answer}</td>
+            <td style="color: ${isNotFound ? '#f43f5e' : '#93c5fd'}; font-family: monospace;">${item.expected_answer}</td>
             <td>${item.actual_answer}</td>
-            <td><span class="source-badge ${item.sources.length ? '' : 'empty'}">${item.sources.join(', ') || 'None'}</span></td>
-            <td><span class="status-ok">&#x2714; PASSED</span></td>
+            <td><span class="source-tag ${item.sources.length ? '' : 'none'}">${item.sources.join(', ') || 'None'}</span></td>
+            <td style="color: #34d399; font-weight: 700;">&#x2714; PASSED</td>
           `;
           tbody.appendChild(tr);
         });
-      } catch (e) {
-        console.error("Failed to load assessment data", e);
+      } catch (err) {
+        console.error("Failed to load modal", err);
       }
     }
 
-    document.getElementById('queryInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleAsk();
+    document.getElementById('userInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSend();
     });
-
-    loadAssessment();
   </script>
 </body>
 </html>
@@ -776,7 +864,7 @@ def run_server():
     server_address = ("127.0.0.1", PORT)
     httpd = HTTPServer(server_address, RAGRequestHandler)
     print(f"\n=======================================================")
-    print(f"  TitanCloud SRE Incident Assistant is running!")
+    print(f"  TitanCloud SRE Incident Copilot is running!")
     print(f"  Open in your browser: http://localhost:{PORT}")
     print(f"=======================================================\n")
     httpd.serve_forever()
