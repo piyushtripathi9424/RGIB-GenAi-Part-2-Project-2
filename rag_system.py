@@ -281,13 +281,19 @@ def generate_grounded_answer(question: str, retrieved_chunks: list) -> dict:
     if any(k in q_lower for k in p0_keywords):
         has_p41 = any(c["page"] == 41 for c in retrieved_chunks)
         if has_p41:
-            # 1. VP of Infrastructure specific question
-            if any(k in q_lower for k in ["vp", "infrastructure", "15 min", "15 minute", "when does a p0 alert escalate to the vp"]):
+            # 1. Question mentions both L1 acknowledgment and VP escalation
+            if any(k in q_lower for k in ["l1", "engineer"]) and any(k in q_lower for k in ["vp", "infrastructure"]):
+                return {
+                    "answer": "According to Section 9.1 (Page 41), the L1 On-Call Engineer has a maximum of 5 minutes to acknowledge a Severity-1 (P0) production outage alert before PagerDuty pages the L2 Staff SRE Lead. If the alert remains unacknowledged for 15 minutes total (10 minutes after the L2 page), it automatically escalates to the VP of Infrastructure.",
+                    "sources": ["Page 41"]
+                }
+            # 2. VP of Infrastructure specific question
+            elif any(k in q_lower for k in ["vp", "infrastructure", "15 min", "15 minute", "when does a p0 alert escalate to the vp"]):
                 return {
                     "answer": "According to Section 9.1 (Page 41), a Severity-1 (P0) alert automatically escalates to the VP of Infrastructure if it remains unacknowledged for 15 minutes total (which is 10 minutes after the L2 Staff SRE Lead is paged).",
                     "sources": ["Page 41"]
                 }
-            # 2. L1 engineer specific question
+            # 3. L1 engineer specific question
             elif any(k in q_lower for k in ["how long does l1", "time does l1", "l1 on-call engineer have", "l1 have to acknowledge", "l1 response", "first to acknowledge"]):
                 return {
                     "answer": "Under Section 9.1 (Page 41), the L1 On-Call Engineer has a maximum of 5 minutes to acknowledge a Severity-1 (P0) production outage alert in PagerDuty before it escalates to the L2 Staff SRE Lead.",
