@@ -1,0 +1,58 @@
+[
+  {
+    "question_id": "Q1",
+    "question": "What is the service credit percentage owed to enterprise customers if monthly uptime drops to 99.2%?",
+    "category": "Supported (Needle Page 9)",
+    "expected_answer": "25% service credit (Page 9 Section 2.3)",
+    "expected_sources": "Page 9",
+    "rag_answer": "According to Section 2.3 (Enterprise Uptime SLA & Service Credit Schedule), for a monthly uptime between 99.00% to 99.49% (including 99.2%), enterprise customers are owed a 25% service credit applied against their monthly cluster invoice.",
+    "rag_sources": [
+      "Page 9"
+    ],
+    "status": "PASSED (MATCH)"
+  },
+  {
+    "question_id": "Q2",
+    "question": "What is the maximum permitted replication lag threshold before Patroni initiates automatic failover for error code ERR_PG_REPLICA_LAG?",
+    "category": "Supported (Needle Page 22)",
+    "expected_answer": "Strictly 45 seconds across three consecutive 5-second health probes (Page 22 Section 5.4)",
+    "expected_sources": "Page 22",
+    "rag_answer": "Under Section 5.4 for error code ERR_PG_REPLICA_LAG, the maximum permitted replication lag threshold is strictly 45 seconds. If replication lag exceeds 45 seconds across three consecutive 5-second health probes, the Patroni consensus controller automatically fences the degraded node and initiates failover to the healthy standby.",
+    "rag_sources": [
+      "Page 22"
+    ],
+    "status": "PASSED (MATCH)"
+  },
+  {
+    "question_id": "Q3",
+    "question": "What is the escalation timeline for a Severity-1 (P0) production outage alert if unacknowledged by the L1 On-Call Engineer?",
+    "category": "Supported (Needle Page 41)",
+    "expected_answer": "L1 has 5 min to acknowledge; pages L2 Staff SRE Lead at 5 min; escalates to VP of Infrastructure at 15 min total (Page 41 Section 9.1)",
+    "expected_sources": "Page 41",
+    "rag_answer": "Under Section 9.1 for Severity-1 (P0) production outage alerts in PagerDuty: 1. The L1 On-Call Engineer has a maximum of 5 minutes to acknowledge the alert. 2. If unacknowledged at the 5-minute mark, PagerDuty pages the L2 Staff SRE Lead. 3. If the alert remains unacknowledged for 15 minutes total (10 minutes after L2 page), it automatically escalates to the VP of Infrastructure.",
+    "rag_sources": [
+      "Page 41"
+    ],
+    "status": "PASSED (MATCH)"
+  },
+  {
+    "question_id": "Q4",
+    "question": "What is the automated canary deployment rollout percentage and bake time for Kubernetes clusters?",
+    "category": "Unsupported (Negative Control / Fallback)",
+    "expected_answer": "[not found]",
+    "expected_sources": "None",
+    "rag_answer": "[not found]",
+    "rag_sources": [],
+    "status": "PASSED (MATCH)"
+  },
+  {
+    "question_id": "Q5",
+    "question": "What is the retention period and backup frequency for PostgreSQL Write-Ahead Logs (WAL) in cold S3 storage?",
+    "category": "Unsupported (Negative Control / Fallback)",
+    "expected_answer": "[not found]",
+    "expected_sources": "None",
+    "rag_answer": "[not found]",
+    "rag_sources": [],
+    "status": "PASSED (MATCH)"
+  }
+]
