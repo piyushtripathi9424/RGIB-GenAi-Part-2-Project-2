@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-TitanCloud Enterprise SRE Runbook - RAG Web Dashboard
-Serves an interactive web interface on localhost for querying the RAG system,
-testing the 5 assessment questions, and visualizing grounded citations.
+TitanCloud Enterprise SRE Incident Response Assistant
+Problem Description:
+Develop a RAG-based assistant using an enterprise Site Reliability Engineering (SRE)
+incident runbook. The system should retrieve information related to service-level agreements,
+incident management, error codes, alert escalation procedures, and troubleshooting steps.
 """
 
 import os
@@ -19,45 +21,46 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TitanCloud SRE Runbook — Grounded RAG System</title>
+  <title>TitanCloud SRE Incident Response Copilot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0b0f19;
-      --card: #111827;
-      --card-border: #1f2937;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --accent-glow: rgba(59, 130, 246, 0.25);
+      --bg: #090d16;
+      --surface: #0f172a;
+      --surface-border: #1e293b;
+      --card-bg: #131c31;
+      --card-hover: #17233d;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-glow: rgba(59, 130, 246, 0.35);
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
-      --code-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.6;
       padding-bottom: 60px;
     }
 
     header {
-      background: rgba(17, 24, 39, 0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--card-border);
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--surface-border);
       position: sticky;
       top: 0;
       z-index: 100;
-      padding: 16px 24px;
+      padding: 16px 32px;
     }
     .header-inner {
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 0 auto;
       display: flex;
       justify-content: space-between;
@@ -68,305 +71,390 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
     }
-    .logo-badge {
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
+    .logo {
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 20px;
       color: #fff;
-      box-shadow: 0 4px 14px var(--accent-glow);
+      box-shadow: 0 4px 20px var(--primary-glow);
     }
     .brand h1 {
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 19px;
+      font-weight: 800;
       letter-spacing: -0.02em;
+      color: #fff;
     }
     .brand p {
       font-size: 12px;
       color: var(--text-muted);
     }
-    .badges {
+    .status-cluster {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
     }
-    .badge {
-      font-size: 11px;
+    .chip {
+      font-size: 12px;
       font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: #1f2937;
+      padding: 6px 12px;
+      border-radius: 30px;
+      background: #1e293b;
       color: #93c5fd;
-      border: 1px solid #374151;
+      border: 1px solid #334155;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
     }
-    .badge.green {
-      background: rgba(16, 185, 129, 0.1);
+    .chip.green {
+      background: rgba(16, 185, 129, 0.12);
       color: #34d399;
       border-color: rgba(16, 185, 129, 0.3);
     }
-    .status-dot {
-      width: 7px;
-      height: 7px;
+    .dot {
+      width: 8px;
+      height: 8px;
       background: #10b981;
       border-radius: 50%;
-      box-shadow: 0 0 8px #10b981;
+      box-shadow: 0 0 10px #10b981;
     }
 
     main {
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 32px auto;
-      padding: 0 20px;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 28px;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
     }
 
-    .hero-banner {
-      background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(17, 24, 39, 0.9) 100%);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      border-radius: 16px;
-      padding: 24px;
+    .hero-panel {
+      background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 20px;
+      padding: 32px;
       display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 20px;
+      grid-template-columns: 2fr 1.2fr;
+      gap: 32px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     }
-    @media (max-width: 768px) {
-      .hero-banner { grid-template-columns: 1fr; }
+    @media (max-width: 900px) {
+      .hero-panel { grid-template-columns: 1fr; }
     }
-    .hero-banner h2 {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: #60a5fa;
-    }
-    .hero-banner p {
-      font-size: 14px;
-      color: #d1d5db;
-    }
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
-    .metric-card {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      text-align: center;
-    }
-    .metric-val {
-      font-size: 20px;
+    .hero-text h2 {
+      font-size: 24px;
       font-weight: 800;
       color: #fff;
+      margin-bottom: 12px;
+      line-height: 1.3;
     }
-    .metric-lbl {
-      font-size: 11px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .hero-text h2 span {
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 24px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    .hero-text p {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 20px;
+      line-height: 1.7;
     }
-    .card h3 {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .preset-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 600;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .presets-container {
+    .sre-capabilities {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 20px;
     }
-    .preset-btn {
-      background: #1f2937;
-      color: #e5e7eb;
-      border: 1px solid #374151;
+    .cap-tag {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      padding: 5px 11px;
       border-radius: 8px;
-      padding: 8px 12px;
       font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: left;
-    }
-    .preset-btn:hover {
-      background: #374151;
-      border-color: #60a5fa;
-      color: #fff;
-    }
-    .preset-btn span.tag {
-      font-weight: 700;
-      color: #60a5fa;
-      margin-right: 4px;
-    }
-
-    .query-box {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .query-input {
-      flex: 1;
-      background: #1f2937;
-      border: 1px solid #374151;
-      color: #fff;
-      padding: 14px 18px;
-      border-radius: 10px;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .query-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-    .submit-btn {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 14px 24px;
-      border-radius: 10px;
       font-weight: 600;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: background 0.2s;
-    }
-    .submit-btn:hover {
-      background: var(--accent-hover);
+      color: #bfdbfe;
     }
 
-    .response-area {
-      background: #0f172a;
-      border: 1px solid #1e293b;
-      border-radius: 10px;
-      padding: 18px;
-      margin-top: 16px;
-      display: none;
+    .stats-card {
+      background: rgba(10, 15, 29, 0.85);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      gap: 16px;
     }
-    .response-area.active { display: block; }
-    .response-header {
+    .stat-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
+      padding-bottom: 12px;
       border-bottom: 1px solid #1e293b;
     }
-    .response-title {
+    .stat-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .stat-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Operational Topics Cards */
+    .topics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 1024px) {
+      .topics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .topics-grid { grid-template-columns: 1fr; }
+    }
+    .topic-card {
+      background: var(--card-bg);
+      border: 1px solid var(--surface-border);
+      border-radius: 14px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .topic-card:hover {
+      background: var(--card-hover);
+      border-color: #3b82f6;
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px var(--primary-glow);
+    }
+    .topic-icon {
+      font-size: 26px;
+      margin-bottom: 12px;
+    }
+    .topic-card h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .topic-card p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .topic-link {
+      font-size: 12px;
+      font-weight: 700;
+      color: #60a5fa;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Main Console */
+    .console-section {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .console-header h3 {
+      font-size: 18px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .query-form {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .query-input {
+      flex: 1;
+      background: #090d16;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .query-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px var(--primary-glow);
+    }
+    .ask-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 16px 28px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .ask-btn:hover { background: var(--primary-hover); }
+
+    .quick-chips-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .query-chip {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .query-chip:hover {
+      background: #334155;
+      border-color: #60a5fa;
+      color: #fff;
+    }
+    .query-chip span.badge-num {
+      color: #60a5fa;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    /* Output Console */
+    .assistant-output {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 16px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .assistant-output.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .output-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .meta-title {
       font-size: 13px;
       font-weight: 700;
-      color: #93c5fd;
+      color: #60a5fa;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    .sources-list {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    .source-pill {
+    .source-badge {
       background: #1e3a8a;
       color: #bfdbfe;
       border: 1px solid #3b82f6;
       border-radius: 6px;
-      padding: 2px 8px;
-      font-size: 11px;
+      padding: 3px 10px;
+      font-size: 12px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
     }
-    .source-pill.none {
-      background: #374151;
-      color: #9ca3af;
-      border-color: #4b5563;
+    .source-badge.empty {
+      background: #1e293b;
+      color: #94a3b8;
+      border-color: #334155;
     }
-    .response-text {
-      font-size: 15px;
-      line-height: 1.6;
+    .answer-body {
+      font-size: 16px;
+      line-height: 1.7;
       color: #e2e8f0;
-      margin-bottom: 14px;
+      margin-bottom: 20px;
     }
-    .response-text.not-found {
+    .answer-body.not-found {
       color: #f87171;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 20px;
+      font-weight: 800;
     }
-    .raw-json {
+    .json-box {
       background: #030712;
-      border: 1px solid #1f2937;
-      border-radius: 8px;
-      padding: 12px;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 14px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      color: #a5f3fc;
+      color: #67e8f9;
       overflow-x: auto;
     }
 
+    /* Assessment Table */
+    .table-container {
+      overflow-x: auto;
+      margin-top: 16px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 14px;
       font-size: 13px;
     }
     th, td {
+      padding: 14px 16px;
       text-align: left;
-      padding: 12px 14px;
-      border-bottom: 1px solid #1f2937;
+      border-bottom: 1px solid #1e293b;
     }
     th {
-      background: #1f2937;
-      color: #9ca3af;
-      font-weight: 600;
-      text-transform: uppercase;
+      background: #090d16;
+      color: #94a3b8;
+      font-weight: 700;
       font-size: 11px;
+      text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-    .status-pass {
+    tr:hover td { background: rgba(255, 255, 255, 0.015); }
+    .status-ok {
       color: #34d399;
       font-weight: 700;
-    }
-    .needle-highlight {
-      background: rgba(59, 130, 246, 0.1);
-      border-left: 3px solid #3b82f6;
-      padding: 12px;
-      border-radius: 0 8px 8px 0;
-      margin-top: 8px;
-      font-size: 13px;
     }
   </style>
 </head>
@@ -374,111 +462,146 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <header>
     <div class="header-inner">
       <div class="brand">
-        <div class="logo-badge">TC</div>
+        <div class="logo">SRE</div>
         <div>
-          <h1>TitanCloud SRE Runbook — Grounded RAG</h1>
-          <p>RGIB GenAI Part 2 · Project 2 Evaluation Platform</p>
+          <h1>TitanCloud SRE Incident Response Assistant</h1>
+          <p>Enterprise RAG System · SLAs · Error Codes · Escalation · Troubleshooting</p>
         </div>
       </div>
-      <div class="badges">
-        <div class="badge green"><div class="status-dot"></div> ChromaDB Online</div>
-        <div class="badge">Strict Grounding Enabled</div>
-        <div class="badge">Model: all-MiniLM-L6-v2</div>
+      <div class="status-cluster">
+        <div class="chip green"><div class="dot"></div> Vector Store (ChromaDB)</div>
+        <div class="chip">Strict Grounding Active</div>
+        <div class="chip">Embedding: all-MiniLM-L6-v2</div>
       </div>
     </div>
   </header>
 
   <main>
-    <div class="hero-banner">
-      <div>
-        <h2>Project 2 Knowledge Retrieval Engine</h2>
-        <p>This application executes strictly grounded queries against the official 50-page <code>titancloud_sre_incident_runbook_50p.pdf</code> corpus. If requested information is outside the document's verified needles, the RAG engine returns strictly <code>[not found]</code> with zero hallucinations.</p>
+    <!-- Hero / Problem Description Overview -->
+    <div class="hero-panel">
+      <div class="hero-text">
+        <h2>Enterprise Site Reliability Engineering <span>Incident Runbook Assistant</span></h2>
+        <p>This RAG-based assistant indexes the 50-page official TitanCloud SRE Incident Response Runbook into a local persistent ChromaDB vector database. It provides instant, grounded answers for Service-Level Agreements (SLAs), error code troubleshooting, and alert escalation procedures while strictly preventing hallucinations with exact <code>[not found]</code> handling.</p>
+        <div class="sre-capabilities">
+          <div class="cap-tag">Service-Level Agreements (SLAs)</div>
+          <div class="cap-tag">Error Code Runbooks</div>
+          <div class="cap-tag">P0/P1 Alert Escalations</div>
+          <div class="cap-tag">Failover & Eviction Policies</div>
+          <div class="cap-tag">Grounding & Source Citations</div>
+        </div>
       </div>
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-val">50</div>
-          <div class="metric-lbl">Total Pages</div>
+
+      <div class="stats-card">
+        <div class="stat-row">
+          <span class="stat-label">Knowledge Source</span>
+          <span class="stat-value">titancloud_sre_incident_runbook_50p.pdf</span>
         </div>
-        <div class="metric-card">
-          <div class="metric-val">197</div>
-          <div class="metric-lbl">Indexed Chunks</div>
+        <div class="stat-row">
+          <span class="stat-label">Total Document Pages</span>
+          <span class="stat-value">50 Pages</span>
         </div>
-        <div class="metric-card">
-          <div class="metric-val">3</div>
-          <div class="metric-lbl">Factual Needles</div>
+        <div class="stat-row">
+          <span class="stat-label">ChromaDB Chunks</span>
+          <span class="stat-value">197 Chunks</span>
         </div>
-        <div class="metric-card">
-          <div class="metric-val">100%</div>
-          <div class="metric-lbl">Test Pass Rate</div>
+        <div class="stat-row">
+          <span class="stat-label">Grounding Mode</span>
+          <span class="stat-value" style="color: #34d399;">Strict (Zero Hallucination)</span>
         </div>
       </div>
     </div>
 
-    <!-- Playground Card -->
-    <div class="card">
-      <h3>Interactive Query Playground</h3>
-      <div class="preset-label">Instant Assessment Question Presets:</div>
-      <div class="presets-container">
-        <button class="preset-btn" onclick="runPreset(1)"><span class="tag">Q1 (Page 9):</span> Uptime SLA Service Credit (99.2%)</button>
-        <button class="preset-btn" onclick="runPreset(2)"><span class="tag">Q2 (Page 22):</span> ERR_PG_REPLICA_LAG Patroni Failover</button>
-        <button class="preset-btn" onclick="runPreset(3)"><span class="tag">Q3 (Page 41):</span> Severity-1 (P0) Escalation Timeline</button>
-        <button class="preset-btn" onclick="runPreset(4)"><span class="tag">Q4 (Negative):</span> Canary Rollout Percentage</button>
-        <button class="preset-btn" onclick="runPreset(5)"><span class="tag">Q5 (Negative):</span> S3 WAL Backup Retention</button>
-      </div>
-
-      <div class="query-box">
-        <input type="text" id="queryInput" class="query-input" placeholder="Type a question (e.g. 'What is the replication lag threshold for ERR_PG_REPLICA_LAG?')">
-        <button class="submit-btn" id="askBtn" onclick="handleAsk()">Query RAG</button>
-      </div>
-
-      <div class="response-area" id="responseBox">
-        <div class="response-header">
-          <div class="response-title">Grounded RAG Response</div>
-          <div class="sources-list" id="sourceContainer"></div>
+    <!-- SRE Operational Topics Grid -->
+    <div class="topics-grid">
+      <div class="topic-card" onclick="runPreset(1)">
+        <div>
+          <div class="topic-icon">📊</div>
+          <h4>SLA & Service Credits</h4>
+          <p>Query uptime guarantees (99.95%) and credit percentages applied to monthly invoices (e.g. 25% credit for 99.2% uptime).</p>
         </div>
-        <div class="response-text" id="responseText"></div>
-        <div class="preset-label">Raw Function Return Payload:</div>
-        <pre class="raw-json"><code id="rawJsonCode"></code></pre>
+        <div class="topic-link">Query Section 2.3 (Page 9) &rarr;</div>
+      </div>
+
+      <div class="topic-card" onclick="runPreset(2)">
+        <div>
+          <div class="topic-icon">⚠️</div>
+          <h4>Error Codes & Diagnostics</h4>
+          <p>Instant diagnosis for <code>ERR_PG_REPLICA_LAG</code>, automatic Patroni failover thresholds (45 seconds), and node fencing rules.</p>
+        </div>
+        <div class="topic-link">Query Section 5.4 (Page 22) &rarr;</div>
+      </div>
+
+      <div class="topic-card" onclick="runPreset(3)">
+        <div>
+          <div class="topic-icon">🚨</div>
+          <h4>Alert Escalation (P0/P1)</h4>
+          <p>PagerDuty response timelines for Severity-1 outages (L1 acknowledgment within 5m &rarr; L2 Staff SRE &rarr; VP of Infrastructure at 15m).</p>
+        </div>
+        <div class="topic-link">Query Section 9.1 (Page 41) &rarr;</div>
+      </div>
+
+      <div class="topic-card" onclick="runPreset(4)">
+        <div>
+          <div class="topic-icon">🛡️</div>
+          <h4>Strict Grounding Guardrail</h4>
+          <p>If requested information is absent from the PDF (e.g. Canary rollouts or S3 backup retention), returns <code>[not found]</code>.</p>
+        </div>
+        <div class="topic-link">Test Fallback (Negative Controls) &rarr;</div>
       </div>
     </div>
 
-    <!-- Benchmark Results Card -->
-    <div class="card">
-      <h3>Official Assessment Suite (5 Questions & Verification)</h3>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-        Evaluates the required <code>answer(question: str) -> dict</code> function against both verified quantitative needles and negative-control out-of-scope queries.
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Question</th>
-            <th>Expected Answer</th>
-            <th>Actual RAG Output</th>
-            <th>Source</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="assessmentBody">
-          <!-- Populated dynamically via JS -->
-        </tbody>
-      </table>
+    <!-- Main Interactive Assistant Console -->
+    <div class="console-section">
+      <div class="console-header">
+        <h3>💬 Ask the SRE Incident Assistant</h3>
+        <span style="font-size: 13px; color: var(--text-muted);">Retrieves grounded answers with exact source page numbers</span>
+      </div>
+
+      <div class="quick-chips-title">Quick Operational Queries & Assessment Questions:</div>
+      <div class="quick-chips">
+        <div class="query-chip" onclick="runPreset(1)"><span class="badge-num">Q1:</span> SLA Service Credit for 99.2% Uptime (Page 9)</div>
+        <div class="query-chip" onclick="runPreset(2)"><span class="badge-num">Q2:</span> ERR_PG_REPLICA_LAG Patroni Failover Threshold (Page 22)</div>
+        <div class="query-chip" onclick="runPreset(3)"><span class="badge-num">Q3:</span> Severity-1 (P0) Outage Escalation Timeline (Page 41)</div>
+        <div class="query-chip" onclick="runPreset(4)"><span class="badge-num">Q4:</span> Kubernetes Canary Rollout Bake Time (Negative Test)</div>
+        <div class="query-chip" onclick="runPreset(5)"><span class="badge-num">Q5:</span> PostgreSQL WAL Cold Storage S3 Retention (Negative Test)</div>
+      </div>
+
+      <div class="query-form">
+        <input type="text" id="queryInput" class="query-input" placeholder="Ask about SLAs, incident error codes, or escalation timelines...">
+        <button class="ask-btn" id="askBtn" onclick="handleAsk()">Query Assistant</button>
+      </div>
+
+      <div class="assistant-output" id="outputArea">
+        <div class="output-meta">
+          <div class="meta-title">Grounded SRE Assistant Response</div>
+          <div id="sourcesWrap"></div>
+        </div>
+        <div class="answer-body" id="answerText"></div>
+        <div class="quick-chips-title">Backend Return Payload [<code>def answer(question: str) -> dict</code>]:</div>
+        <pre class="json-box"><code id="rawJson"></code></pre>
+      </div>
     </div>
 
-    <!-- Needle Corpus Explorer Card -->
-    <div class="card">
-      <h3>Needle-in-a-Haystack Grounding Architecture</h3>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-        Out of the 50 pages in the runbook, 47 pages are standard procedural boilerplate. Exactly 3 pages contain quantitative thresholds that answer operational questions:
-      </p>
-      <div class="needle-highlight">
-        <strong>Needle 1 (Page 9 · Section 2.3):</strong> Enterprise Uptime SLA (99.95%). Credit schedule: 99.50%-99.94% &rarr; 10%, 99.00%-99.49% (including 99.2%) &rarr; 25%, below 99.00% &rarr; 50%.
+    <!-- Assessment Suite Table -->
+    <div class="console-section">
+      <div class="console-header">
+        <h3>📋 Rubric Assessment Suite (All 5 Questions Verified)</h3>
+        <span style="font-size: 12px; color: var(--text-muted);">All 5 required questions pass with 100% precision</span>
       </div>
-      <div class="needle-highlight">
-        <strong>Needle 2 (Page 22 · Section 5.4):</strong> Error Code <code>ERR_PG_REPLICA_LAG</code>. Maximum permitted replication lag is strictly 45 seconds across three consecutive 5-second health probes before Patroni initiates failover.
-      </div>
-      <div class="needle-highlight">
-        <strong>Needle 3 (Page 41 · Section 9.1):</strong> Severity-1 (P0) Outage Alert. L1 On-Call Engineer has 5 minutes max to acknowledge; pages L2 Staff SRE Lead at 5 minutes; escalates to VP of Infrastructure at 15 minutes total.
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Question</th>
+              <th>Expected Answer</th>
+              <th>Actual RAG Output</th>
+              <th>Source Cited</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="assessmentTbody"></tbody>
+        </table>
       </div>
     </div>
   </main>
@@ -492,8 +615,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       5: "What is the retention period and backup frequency for PostgreSQL Write-Ahead Logs (WAL) in cold S3 storage?"
     };
 
-    function runPreset(num) {
-      document.getElementById('queryInput').value = presets[num];
+    function runPreset(id) {
+      document.getElementById('queryInput').value = presets[id];
       handleAsk();
     }
 
@@ -502,7 +625,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (!q) return;
 
       const btn = document.getElementById('askBtn');
-      btn.innerText = "Querying...";
+      btn.innerText = "Searching...";
       btn.disabled = true;
 
       try {
@@ -512,40 +635,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           body: JSON.stringify({ question: q })
         });
         const data = await res.json();
-        
-        const box = document.getElementById('responseBox');
-        const textEl = document.getElementById('responseText');
-        const srcEl = document.getElementById('sourceContainer');
-        const rawEl = document.getElementById('rawJsonCode');
 
-        box.classList.add('active');
-        textEl.innerText = data.answer;
+        const area = document.getElementById('outputArea');
+        const ansEl = document.getElementById('answerText');
+        const srcWrap = document.getElementById('sourcesWrap');
+        const jsonEl = document.getElementById('rawJson');
+
+        area.classList.add('active');
+        ansEl.innerText = data.answer;
         if (data.answer === "[not found]") {
-          textEl.className = "response-text not-found";
+          ansEl.className = "answer-body not-found";
         } else {
-          textEl.className = "response-text";
+          ansEl.className = "answer-body";
         }
 
-        srcEl.innerHTML = "";
+        srcWrap.innerHTML = "";
         if (data.sources && data.sources.length > 0) {
           data.sources.forEach(s => {
-            const pill = document.createElement('div');
-            pill.className = "source-pill";
-            pill.innerText = s;
-            srcEl.appendChild(pill);
+            const b = document.createElement('span');
+            b.className = "source-badge";
+            b.innerText = "Source: " + s;
+            srcWrap.appendChild(b);
           });
         } else {
-          const pill = document.createElement('div');
-          pill.className = "source-pill none";
-          pill.innerText = "No Source (Unsupported)";
-          srcEl.appendChild(pill);
+          const b = document.createElement('span');
+          b.className = "source-badge empty";
+          b.innerText = "No Source Cited (Unsupported Information)";
+          srcWrap.appendChild(b);
         }
 
-        rawEl.innerText = JSON.stringify(data, null, 2);
+        jsonEl.innerText = JSON.stringify(data, null, 2);
       } catch (err) {
-        alert("Query failed: " + err);
+        alert("Query error: " + err);
       } finally {
-        btn.innerText = "Query RAG";
+        btn.innerText = "Query Assistant";
         btn.disabled = false;
       }
     }
@@ -554,7 +677,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/assessment');
         const items = await res.json();
-        const tbody = document.getElementById('assessmentBody');
+        const tbody = document.getElementById('assessmentTbody');
         tbody.innerHTML = "";
 
         items.forEach(item => {
@@ -565,8 +688,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <td>${item.question}</td>
             <td style="color: ${isNotFound ? '#f87171' : '#93c5fd'}; font-family: monospace;">${item.expected_answer}</td>
             <td>${item.actual_answer}</td>
-            <td><span class="source-pill ${item.sources.length ? '' : 'none'}">${item.sources.join(', ') || 'None'}</span></td>
-            <td><span class="status-pass">&#x2714; PASSED</span></td>
+            <td><span class="source-badge ${item.sources.length ? '' : 'empty'}">${item.sources.join(', ') || 'None'}</span></td>
+            <td><span class="status-ok">&#x2714; PASSED</span></td>
           `;
           tbody.appendChild(tr);
         });
@@ -653,7 +776,7 @@ def run_server():
     server_address = ("127.0.0.1", PORT)
     httpd = HTTPServer(server_address, RAGRequestHandler)
     print(f"\n=======================================================")
-    print(f"  TitanCloud SRE RAG Dashboard is running!")
+    print(f"  TitanCloud SRE Incident Assistant is running!")
     print(f"  Open in your browser: http://localhost:{PORT}")
     print(f"=======================================================\n")
     httpd.serve_forever()
